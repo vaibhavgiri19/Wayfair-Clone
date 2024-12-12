@@ -15,16 +15,37 @@ import Header from "./Header";
 import Footer from "./Footer";
 import { Link } from "react-router-dom";
 import { StarIcon } from "@chakra-ui/icons";
+import axios from "axios"; // Import Axios for API calls
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState(
-    JSON.parse(localStorage.getItem("cart")) || []
-  );
+  const [cartItems, setCartItems] = useState([]); // Cart items will be fetched from the backend
   const toast = useToast();
 
+  // Fetch cart items from the backend on component mount
   useEffect(() => {
-    setCartItems(JSON.parse(localStorage.getItem("cart")) || []);
+    fetchCartItems();
   }, []);
+
+  const fetchCartItems = async () => {
+    try {
+      const token = localStorage.getItem("authToken"); // Get the JWT token
+      const response = await axios.get("http://localhost:5000/api/cart", {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token in the headers
+        },
+      });
+      setCartItems(response.data.cartItems); // Update state with cart items
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch cart items.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
 
   const calculateTotal = () => {
     if (cartItems.length === 0) return 0;
@@ -33,29 +54,64 @@ const Cart = () => {
       .toFixed(2);
   };
 
-  const handleCheckout = () => {
-    localStorage.removeItem("cart");
-    setCartItems([]);
-    toast({
-      title: "Checkout Completed Successfully",
-      description: "Cart is now empty!",
-      status: "success",
-      duration: 9000,
-      isClosable: true,
-    });
+  const handleCheckout = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      await axios.post(
+        "http://localhost:5000/api/cart/checkout",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setCartItems([]);
+      toast({
+        title: "Checkout Successful",
+        description: "Your cart has been cleared.",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error during checkout:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete checkout.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
-  const handleRemove = (id) => {
-    const updatedCart = cartItems.filter((item) => item.id !== id);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-    setCartItems(updatedCart);
-    toast({
-      title: "Item Removed From Cart",
-      description: "Item successfully removed.",
-      status: "info",
-      duration: 9000,
-      isClosable: true,
-    });
+  const handleRemove = async (id) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      await axios.delete(`http://localhost:5000/api/cart/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setCartItems((prevItems) => prevItems.filter((item) => item._id !== id));
+      toast({
+        title: "Item Removed",
+        description: "The item has been removed from your cart.",
+        status: "info",
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error removing item from cart:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove item.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   return (
@@ -75,7 +131,7 @@ const Cart = () => {
           <SimpleGrid gap={2}>
             {cartItems.length > 0 ? (
               cartItems.map((elem) => (
-                <Box key={elem.id} p={5}>
+                <Box key={elem._id} p={5}>
                   <Divider mb={10} bg={"grey"} h={0.8} />
                   <SimpleGrid
                     gridTemplateColumns={[
@@ -134,7 +190,7 @@ const Cart = () => {
                         _hover={{ textDecoration: "underline" }}
                         fontWeight={400}
                         cursor={"pointer"}
-                        onClick={() => handleRemove(elem.id)}
+                        onClick={() => handleRemove(elem._id)}
                       >
                         Remove
                       </Text>
@@ -202,3 +258,4 @@ const Cart = () => {
 };
 
 export default Cart;
+
